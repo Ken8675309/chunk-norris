@@ -73,10 +73,28 @@ export function completeJob(id, chunksCreated) {
 
 export function cancelJob(id) {
   const db = getDb()
+  // Returns the pid if the job was actively processing so caller can kill the process
+  const job = db.prepare(`SELECT pid FROM jobs WHERE id = ? AND status IN ('queued','processing')`).get(id)
   db.prepare(`
-    UPDATE jobs SET status = 'error', error_msg = 'Cancelled by user'
-    WHERE id = ? AND status = 'queued'
+    UPDATE jobs SET status = 'canceled', error_msg = 'Cancelled by user', pid = NULL
+    WHERE id = ? AND status IN ('queued', 'processing')
   `).run(id)
+  return job?.pid ?? null
+}
+
+export function setJobPid(id, pid) {
+  const db = getDb()
+  db.prepare('UPDATE jobs SET pid = ? WHERE id = ?').run(pid, id)
+}
+
+export function deleteJob(id) {
+  const db = getDb()
+  db.prepare('DELETE FROM jobs WHERE id = ?').run(id)
+}
+
+export function clearErroredJobs() {
+  const db = getDb()
+  db.prepare(`DELETE FROM jobs WHERE status IN ('error', 'canceled')`).run()
 }
 
 export function retryJob(id) {
@@ -90,6 +108,22 @@ export function retryJob(id) {
 export function clearDoneJobs() {
   const db = getDb()
   db.prepare("DELETE FROM jobs WHERE status = 'done'").run()
+}
+
+export function resetStuckJobs() {
+  const db = getDb()
+  db.prepare(`
+    UPDATE jobs SET status = 'queued', progress = 0, status_msg = ''
+    WHERE status = 'processing'
+  `).run()
+}
+
+export function resetJob(id) {
+  const db = getDb()
+  db.prepare(`
+    UPDATE jobs SET status = 'queued', progress = 0, error_msg = '', status_msg = ''
+    WHERE id = ? AND status = 'processing'
+  `).run(id)
 }
 
 // ---- DOCUMENTS ----

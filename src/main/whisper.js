@@ -4,15 +4,22 @@ import { is } from '@electron-toolkit/utils'
 
 const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 
+const spawnEnv = {
+  ...process.env,
+  CUDA_VISIBLE_DEVICES: '',
+  HIP_VISIBLE_DEVICES: '',
+}
+
 function getScriptsDir() {
   if (is.dev) return join(process.cwd(), 'resources', 'scripts')
   return join(process.resourcesPath, 'scripts')
 }
 
-export function transcribeAudio(audioPath, model = 'large-v3', onProgress) {
+export function transcribeAudio(audioPath, model = 'large-v3', onProgress, onPid) {
   return new Promise((resolve, reject) => {
     const scriptPath = join(getScriptsDir(), 'transcribe.py')
-    const py = spawn(PYTHON, [scriptPath, audioPath, '--model', model])
+    const py = spawn(PYTHON, [scriptPath, audioPath, '--model', model], { env: spawnEnv })
+    if (onPid) onPid(py.pid)
 
     let stdout = ''
     let stderr = ''

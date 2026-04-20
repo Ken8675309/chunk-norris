@@ -9,6 +9,7 @@ import json
 import argparse
 import os
 
+import torch
 from faster_whisper import WhisperModel
 
 
@@ -16,16 +17,19 @@ def transcribe(audio_path: str, model_size: str = 'large-v3') -> dict:
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-    # Determine device/compute type
-    import torch
-    if torch.cuda.is_available():
-        device = 'cuda'
-        compute_type = 'float16'
-    else:
-        device = 'cpu'
-        compute_type = 'int8'
+    device = "cpu"
+    compute_type = "int8"
+    cpu_threads = 24
+    num_workers = 4
+    print(f"[whisper] Using device: {device}, compute_type: {compute_type}, threads: {cpu_threads}", flush=True)
 
-    model = WhisperModel(model_size, device=device, compute_type=compute_type)
+    model = WhisperModel(
+        model_size,
+        device=device,
+        compute_type=compute_type,
+        cpu_threads=cpu_threads,
+        num_workers=num_workers,
+    )
 
     segments_out = []
     full_text_parts = []

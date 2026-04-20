@@ -3,6 +3,7 @@ import { extname } from 'path'
 
 const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 import { getSettings, setSetting, addJob, listJobs, cancelJob, retryJob, clearDoneJobs,
+         resetJob, deleteJob, clearErroredJobs,
          listDocuments, searchDocuments, deleteDocument } from '../db/queries.js'
 import { isQdrantRunning, getQdrantStats, deleteBySourceFile } from './qdrant.js'
 import { ingestFile } from './ingestor.js'
@@ -56,11 +57,22 @@ export function registerIpcHandlers() {
 
   // ---- QUEUE ----
   ipcMain.handle('queue:list', () => listJobs())
-  ipcMain.handle('queue:cancel', (_, id) => cancelJob(id))
+  ipcMain.handle('queue:cancel', (_, id) => {
+    const pid = cancelJob(id)
+    if (pid) {
+      try { process.kill(pid, 'SIGTERM') } catch {}
+    }
+  })
   ipcMain.handle('queue:retry', (_, id) => {
     retryJob(id)
     processQueue()
   })
+  ipcMain.handle('queue:reset-job', (_, id) => {
+    resetJob(id)
+    processQueue()
+  })
+  ipcMain.handle('queue:delete-job', (_, id) => deleteJob(id))
+  ipcMain.handle('queue:clear-errors', () => clearErroredJobs())
   ipcMain.handle('queue:clear-done', () => clearDoneJobs())
 
   // ---- QDRANT ----

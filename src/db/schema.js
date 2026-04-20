@@ -31,6 +31,7 @@ export function initDatabase() {
       error_msg   TEXT DEFAULT '',
       chunks_created INTEGER DEFAULT 0,
       visual_analysis INTEGER DEFAULT 1,
+      pid         INTEGER DEFAULT NULL,
       date_added  TEXT NOT NULL DEFAULT (datetime('now')),
       date_completed TEXT
     );
@@ -50,6 +51,9 @@ export function initDatabase() {
       value TEXT NOT NULL
     );
   `)
+
+  // Migrations — safe to re-run (errors ignored)
+  try { db.exec(`ALTER TABLE jobs ADD COLUMN pid INTEGER DEFAULT NULL`) } catch {}
 
   // Seed defaults
   const defaults = {

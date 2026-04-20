@@ -4,7 +4,8 @@ const STATUS_CONFIG = {
   queued:     { badge: 'cn-badge-dim',    label: 'QUEUED' },
   processing: { badge: 'cn-badge-cyan',   label: 'PROCESSING' },
   done:       { badge: 'cn-badge-green',  label: 'DONE' },
-  error:      { badge: 'cn-badge-red',    label: 'ERROR' }
+  error:      { badge: 'cn-badge-red',    label: 'ERROR' },
+  canceled:   { badge: 'cn-badge-dim',    label: 'CANCELED' },
 }
 
 const TYPE_ICONS = {
@@ -13,72 +14,87 @@ const TYPE_ICONS = {
   pdf: '⬛', epub: '◈', docx: '☰', odt: '☰', txt: '☰', md: '☰'
 }
 
+const STUCK_THRESHOLD_MS = 5 * 60 * 1000
+
+function isStuck(job) {
+  if (job.status !== 'processing') return false
+  return Date.now() - new Date(job.date_added).getTime() > STUCK_THRESHOLD_MS
+}
+
 export default function QueueTab() {
   const [jobs, setJobs] = useState([])
 
+  const load = async () => {
+    try { setJobs(await window.api.listJobs()) } catch {}
+  }
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await window.api.listJobs()
-        setJobs(data)
-      } catch {}
-    }
     load()
     const t = setInterval(load, 1500)
     return () => clearInterval(t)
   }, [])
 
-  const handleCancel = async (id) => {
-    await window.api.cancelJob(id)
-  }
+  const handleCancel     = async (id) => { await window.api.cancelJob(id) }
+  const handleRetry      = async (id) => { await window.api.retryJob(id) }
+  const handleReset      = async (id) => { await window.api.resetJob(id) }
+  const handleDelete     = async (id) => { await window.api.deleteJob(id) }
+  const handleClearDone  = async ()   => { await window.api.clearDoneJobs(); load() }
+  const handleClearErrors = async ()  => { await window.api.clearErrors(); load() }
 
-  const handleRetry = async (id) => {
-    await window.api.retryJob(id)
-  }
+  const active   = jobs.filter(j => j.status === 'processing')
+  const queued   = jobs.filter(j => j.status === 'queued')
+  const done     = jobs.filter(j => j.status === 'done')
+  const errored  = jobs.filter(j => j.status === 'error')
+  const canceled = jobs.filter(j => j.status === 'canceled')
 
-  const handleClearDone = async () => {
-    await window.api.clearDoneJobs()
-  }
-
-  const active  = jobs.filter(j => j.status === 'processing')
-  const queued  = jobs.filter(j => j.status === 'queued')
-  const done    = jobs.filter(j => j.status === 'done')
-  const errored = jobs.filter(j => j.status === 'error')
-
-  const hasAny = jobs.length > 0
+  const callbacks = { onCancel: handleCancel, onRetry: handleRetry,
+                      onReset: handleReset, onDelete: handleDelete }
 
   return (
     <div className="tab-container">
+      {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <div>
           <div className="tab-title">⚙ JOB QUEUE</div>
           <div className="tab-subtitle">REAL-TIME PIPELINE STATUS</div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           {[
-            { label: 'ACTIVE', count: active.length, color: 'var(--cn-accent)' },
-            { label: 'QUEUED', count: queued.length, color: 'var(--cn-dim)' },
-            { label: 'DONE',   count: done.length,   color: 'var(--cn-green)' },
-            { label: 'ERRORS', count: errored.length, color: 'var(--cn-red)' }
+            { label: 'ACTIVE',   count: active.length,   color: 'var(--cn-accent)' },
+            { label: 'QUEUED',   count: queued.length,   color: 'var(--cn-dim)' },
+            { label: 'DONE',     count: done.length,     color: 'var(--cn-green)' },
+            { label: 'ERRORS',   count: errored.length,  color: 'var(--cn-red)' },
+            { label: 'CANCELED', count: canceled.length, color: 'var(--cn-dim)' },
           ].map(s => (
             <div key={s.label} style={{ textAlign: 'center', padding: '4px 10px', border: '1px solid var(--cn-border)', background: 'rgba(0,0,0,0.2)' }}>
               <div style={{ fontSize: '16px', color: s.color, textShadow: s.color === 'var(--cn-green)' ? 'var(--cn-glow-green)' : undefined }}>
                 {s.count}
               </div>
-              <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: 'var(--cn-dim)' }}>
-                {s.label}
-              </div>
+              <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: 'var(--cn-dim)' }}>{s.label}</div>
             </div>
           ))}
+          {(errored.length > 0 || canceled.length > 0) && (
+            <button
+              className="cn-btn cn-btn-red"
+              style={{ fontSize: '10px', padding: '4px 12px', borderColor: 'var(--cn-border)', color: 'var(--cn-dim)' }}
+              onClick={handleClearErrors}
+            >
+              CLEAR ERRORS
+            </button>
+          )}
           {done.length > 0 && (
-            <button className="cn-btn cn-btn-dim" style={{ fontSize: '10px', padding: '4px 12px' }} onClick={handleClearDone}>
+            <button
+              className="cn-btn"
+              style={{ fontSize: '10px', padding: '4px 12px', borderColor: 'var(--cn-border)', color: 'var(--cn-dim)' }}
+              onClick={handleClearDone}
+            >
               CLEAR DONE
             </button>
           )}
         </div>
       </div>
 
-      {!hasAny && (
+      {jobs.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">⚙</div>
           <div className="empty-state-text">NO JOBS IN QUEUE</div>
@@ -89,93 +105,103 @@ export default function QueueTab() {
       )}
 
       {active.length > 0 && (
-        <div>
-          <div className="section-label">PROCESSING NOW</div>
-          {active.map(job => <JobItem key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />)}
-        </div>
+        <Section label="PROCESSING NOW">
+          {active.map(j => <JobItem key={j.id} job={j} {...callbacks} />)}
+        </Section>
       )}
-
       {queued.length > 0 && (
-        <div>
-          <div className="section-label">WAITING</div>
-          {queued.map(job => <JobItem key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />)}
-        </div>
+        <Section label="WAITING">
+          {queued.map(j => <JobItem key={j.id} job={j} {...callbacks} />)}
+        </Section>
       )}
-
       {errored.length > 0 && (
-        <div>
-          <div className="section-label">ERRORS</div>
-          {errored.map(job => <JobItem key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />)}
-        </div>
+        <Section label="ERRORS">
+          {errored.map(j => <JobItem key={j.id} job={j} {...callbacks} />)}
+        </Section>
       )}
-
+      {canceled.length > 0 && (
+        <Section label="CANCELED">
+          {canceled.map(j => <JobItem key={j.id} job={j} {...callbacks} />)}
+        </Section>
+      )}
       {done.length > 0 && (
-        <div>
-          <div className="section-label">COMPLETED</div>
-          {done.map(job => <JobItem key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />)}
-        </div>
+        <Section label="COMPLETED">
+          {done.map(j => <JobItem key={j.id} job={j} {...callbacks} />)}
+        </Section>
       )}
     </div>
   )
 }
 
-function JobItem({ job, onCancel, onRetry }) {
-  const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.queued
-  const icon = TYPE_ICONS[job.file_type] || '◈'
-  const isActive = job.status === 'processing'
-  const isDone = job.status === 'done'
-  const isError = job.status === 'error'
-  const isQueued = job.status === 'queued'
+function Section({ label, children }) {
+  return (
+    <div>
+      <div className="section-label">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+function JobItem({ job, onCancel, onRetry, onReset, onDelete }) {
+  const stuck    = isStuck(job)
+  const cfg      = stuck ? { badge: 'cn-badge-amber', label: 'STUCK' }
+                         : (STATUS_CONFIG[job.status] || STATUS_CONFIG.queued)
+  const icon     = TYPE_ICONS[job.file_type] || '◈'
+  const isActive   = job.status === 'processing'
+  const isDone     = job.status === 'done'
+  const isError    = job.status === 'error'
+  const isQueued   = job.status === 'queued'
+  const isCanceled = job.status === 'canceled'
+  const removable  = isDone || isError || isCanceled
+
+  const borderColor = isActive ? (stuck ? 'var(--cn-amber)' : 'var(--cn-accent)')
+                    : isDone   ? 'var(--cn-green)'
+                    : isError  ? 'var(--cn-red)'
+                    : 'var(--cn-border)'
 
   return (
-    <div className="queue-item" style={{ borderLeftColor: isActive ? 'var(--cn-accent)' : isDone ? 'var(--cn-green)' : isError ? 'var(--cn-red)' : 'var(--cn-border)', borderLeftWidth: '3px' }}>
+    <div className="queue-item" style={{ borderLeftColor: borderColor, borderLeftWidth: '3px', marginBottom: '8px' }}>
       <div className="queue-item-header">
         <span style={{ fontSize: '16px', color: 'var(--cn-dim)' }}>{icon}</span>
         <div className="queue-item-name cn-truncate" title={job.file_path}>
           {job.file_name}
         </div>
         <span className={`cn-badge ${cfg.badge}`}>{cfg.label}</span>
-        {(isQueued || isActive) && (
-          <button
-            className="cn-btn cn-btn-red"
-            style={{ fontSize: '9px', padding: '2px 8px' }}
-            onClick={() => onCancel(job.id)}
-          >
-            CANCEL
-          </button>
+
+        {/* STUCK → Reset */}
+        {stuck && (
+          <Btn variant="amber" onClick={() => onReset(job.id)}>RESET</Btn>
         )}
+        {/* QUEUED or active-not-stuck → Cancel */}
+        {(isQueued || (isActive && !stuck)) && (
+          <Btn variant="red" onClick={() => onCancel(job.id)}>CANCEL</Btn>
+        )}
+        {/* ERROR → Retry */}
         {isError && (
-          <button
-            className="cn-btn cn-btn-amber"
-            style={{ fontSize: '9px', padding: '2px 8px' }}
-            onClick={() => onRetry(job.id)}
-          >
-            RETRY
-          </button>
+          <Btn variant="amber" onClick={() => onRetry(job.id)}>RETRY</Btn>
+        )}
+        {/* DONE / ERROR / CANCELED → Remove */}
+        {removable && (
+          <Btn variant="muted" onClick={() => onDelete(job.id)}>REMOVE</Btn>
         )}
       </div>
 
       {isActive && (
         <>
           <div className="cn-progress-track">
-            <div
-              className="cn-progress-fill"
-              style={{ width: `${job.progress || 0}%` }}
-            />
+            <div className="cn-progress-fill" style={{ width: `${job.progress || 0}%` }} />
           </div>
           <div className="queue-item-status-msg">
             {job.status_msg || 'INITIALIZING...'} — {job.progress || 0}%
           </div>
         </>
       )}
-
       {isDone && (
         <div className="cn-progress-track">
           <div className="cn-progress-fill cn-progress-fill-green" style={{ width: '100%' }} />
         </div>
       )}
-
-      {isError && job.error_msg && (
+      {(isError || isCanceled) && job.error_msg && (
         <div style={{ fontSize: '10px', color: 'var(--cn-red)', marginTop: '6px', letterSpacing: '0.05em' }}>
           ⚠ {job.error_msg}
         </div>
@@ -191,12 +217,27 @@ function JobItem({ job, onCancel, onRetry }) {
   )
 }
 
+function Btn({ variant, onClick, children }) {
+  const styles = {
+    amber: { borderColor: 'var(--cn-amber)', color: 'var(--cn-amber)' },
+    red:   { borderColor: 'var(--cn-red)',   color: 'var(--cn-red)' },
+    muted: { borderColor: 'var(--cn-border)', color: 'var(--cn-dim)' },
+  }
+  return (
+    <button
+      className="cn-btn"
+      style={{ fontSize: '9px', padding: '2px 8px', ...styles[variant] }}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
 function formatDate(iso) {
   if (!iso) return '—'
   try {
     const d = new Date(iso)
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-  } catch {
-    return iso
-  }
+  } catch { return iso }
 }

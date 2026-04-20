@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase } from '../db/schema.js'
+import { resetStuckJobs } from '../db/queries.js'
 import { registerIpcHandlers } from './ipc.js'
 import { checkQdrant } from './qdrant.js'
 
@@ -49,6 +50,7 @@ app.whenReady().then(async () => {
   })
 
   initDatabase()
+  resetStuckJobs()
   registerIpcHandlers()
   createWindow()
   checkQdrant()

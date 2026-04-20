@@ -9,7 +9,7 @@ import { extractKeyframes, describeKeyframe, cleanupFrames } from './vision.js'
 import { extractText, getFileFormat } from './document.js'
 import { semanticChunk, embedChunks } from './chunker.js'
 import { upsertVectors } from './qdrant.js'
-import { updateJobProgress, updateJobStatus, completeJob } from '../db/queries.js'
+import { updateJobProgress, updateJobStatus, completeJob, setJobPid } from '../db/queries.js'
 
 const AUDIO_EXTS = new Set(['mp3', 'm4a', 'm4b', 'wav', 'flac', 'ogg', 'aac'])
 const VIDEO_EXTS = new Set(['mp4', 'mkv', 'mov', 'avi', 'webm'])
@@ -44,9 +44,12 @@ async function ingestAudio(jobId, filePath, fileName, settings) {
   const title = fileName.replace(/\.[^.]+$/, '')
 
   updateJobProgress(jobId, 5, 'Transcribing audio...')
-  const result = await transcribeAudio(filePath, settings.whisper_model, (pct) => {
-    updateJobProgress(jobId, 5 + Math.floor(pct * 0.5), 'Transcribing...')
-  })
+  const result = await transcribeAudio(
+    filePath,
+    settings.whisper_model,
+    (pct) => updateJobProgress(jobId, 5 + Math.floor(pct * 0.5), 'Transcribing...'),
+    (pid) => setJobPid(jobId, pid)
+  )
 
   const transcript = result.text || ''
   if (settings.keep_transcripts) saveTranscript(fileName, transcript, settings)
@@ -91,9 +94,12 @@ async function ingestVideo(jobId, filePath, fileName, settings, visualAnalysis) 
   await extractAudioFromVideo(filePath, tmpWav)
 
   updateJobProgress(jobId, 15, 'Transcribing...')
-  const result = await transcribeAudio(tmpWav, settings.whisper_model, (pct) => {
-    updateJobProgress(jobId, 15 + Math.floor(pct * 0.35), 'Transcribing...')
-  })
+  const result = await transcribeAudio(
+    tmpWav,
+    settings.whisper_model,
+    (pct) => updateJobProgress(jobId, 15 + Math.floor(pct * 0.35), 'Transcribing...'),
+    (pid) => setJobPid(jobId, pid)
+  )
 
   let transcript = result.text || ''
   let hasVisualAnalysis = false

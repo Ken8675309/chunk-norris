@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('api', {
   listJobs: () => ipcRenderer.invoke('queue:list'),
   cancelJob: (id) => ipcRenderer.invoke('queue:cancel', id),
   retryJob: (id) => ipcRenderer.invoke('queue:retry', id),
+  resetJob: (id) => ipcRenderer.invoke('queue:reset-job', id),
+  deleteJob: (id) => ipcRenderer.invoke('queue:delete-job', id),
+  clearErrors: () => ipcRenderer.invoke('queue:clear-errors'),
   clearDoneJobs: () => ipcRenderer.invoke('queue:clear-done'),
 
   // Qdrant
