@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+*.sqlite
+*.db
+transcripts/
+qdrant_storage/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+resources/icon.png
+resources/icon.ico
+resources/icon.icns

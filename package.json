@@ -1,0 +1,74 @@
+{
+  "name": "chunk-norris",
+  "version": "1.0.0",
+  "description": "Knowledge ingestion system - Star Trek LCARS meets Chuck Norris",
+  "main": "./out/main/index.js",
+  "author": "Chunk Norris",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-vite build && electron-builder",
+    "package:linux": "electron-vite build && electron-builder --linux",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:mac": "electron-vite build && electron-builder --mac"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-updater": "^6.1.8"
+  },
+  "devDependencies": {
+    "@electron-toolkit/utils": "^3.0.0",
+    "@electron/rebuild": "^3.6.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "vite": "^5.1.6"
+  },
+  "build": {
+    "appId": "com.chunknorris.app",
+    "productName": "Chunk Norris",
+    "copyright": "Copyright © 2024",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/scripts",
+        "to": "scripts",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "resources/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
