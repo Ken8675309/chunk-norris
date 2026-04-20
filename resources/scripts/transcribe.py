@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/ken/chunk-norris/.venv/bin/python
 """
 Chunk Norris - Whisper transcription script
 Uses faster-whisper for audio transcription with progress reporting.
@@ -9,15 +9,7 @@ import json
 import argparse
 import os
 
-def install_deps():
-    import subprocess
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'faster-whisper', '-q'])
-
-try:
-    from faster_whisper import WhisperModel
-except ImportError:
-    install_deps()
-    from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel
 
 
 def transcribe(audio_path: str, model_size: str = 'large-v3') -> dict:

@@ -2,6 +2,8 @@ import { spawn } from 'child_process'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
+
 function getScriptsDir() {
   if (is.dev) return join(process.cwd(), 'resources', 'scripts')
   return join(process.resourcesPath, 'scripts')
@@ -10,7 +12,7 @@ function getScriptsDir() {
 export function transcribeAudio(audioPath, model = 'large-v3', onProgress) {
   return new Promise((resolve, reject) => {
     const scriptPath = join(getScriptsDir(), 'transcribe.py')
-    const py = spawn('python3', [scriptPath, audioPath, '--model', model])
+    const py = spawn(PYTHON, [scriptPath, audioPath, '--model', model])
 
     let stdout = ''
     let stderr = ''
@@ -47,7 +49,7 @@ export function transcribeAudio(audioPath, model = 'large-v3', onProgress) {
     })
 
     py.on('error', (err) => {
-      reject(new Error(`Failed to spawn python3: ${err.message}`))
+      reject(new Error(`Failed to spawn Python (${PYTHON}): ${err.message}`))
     })
   })
 }

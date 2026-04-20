@@ -3,6 +3,8 @@ import { join } from 'path'
 import { mkdirSync, readdirSync, unlinkSync, rmdirSync } from 'fs'
 import { tmpdir } from 'os'
 
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
+
 export async function extractKeyframes(videoPath, intervalSecs = 45, outputDir = null) {
   const dir = outputDir || join(tmpdir(), `cn_frames_${Date.now()}`)
   mkdirSync(dir, { recursive: true })

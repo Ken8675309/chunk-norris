@@ -3,6 +3,8 @@ import { join } from 'path'
 import { readFileSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
 
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
+
 function getScriptsDir() {
   if (is.dev) return join(process.cwd(), 'resources', 'scripts')
   return join(process.resourcesPath, 'scripts')
@@ -21,7 +23,7 @@ export function extractText(filePath, format) {
     }
 
     const scriptPath = join(getScriptsDir(), 'extract_text.py')
-    const py = spawn('python3', [scriptPath, filePath, '--format', format])
+    const py = spawn(PYTHON, [scriptPath, filePath, '--format', format])
 
     let stdout = ''
     let stderr = ''
@@ -44,7 +46,7 @@ export function extractText(filePath, format) {
     })
 
     py.on('error', (err) => {
-      reject(new Error(`python3 not found: ${err.message}`))
+      reject(new Error(`Failed to spawn Python (${PYTHON}): ${err.message}`))
     })
   })
 }

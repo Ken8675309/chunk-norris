@@ -2,6 +2,8 @@ import { join, extname } from 'path'
 import { writeFileSync, mkdirSync, unlinkSync } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { randomUUID } from 'crypto'
+
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 import { transcribeAudio, extractAudioFromVideo, getVideoDuration } from './whisper.js'
 import { extractKeyframes, describeKeyframe, cleanupFrames } from './vision.js'
 import { extractText, getFileFormat } from './document.js'

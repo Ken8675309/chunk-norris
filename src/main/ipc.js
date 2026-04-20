@@ -1,5 +1,7 @@
 import { ipcMain, dialog } from 'electron'
 import { extname } from 'path'
+
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 import { getSettings, setSetting, addJob, listJobs, cancelJob, retryJob, clearDoneJobs,
          listDocuments, searchDocuments, deleteDocument } from '../db/queries.js'
 import { isQdrantRunning, getQdrantStats, deleteBySourceFile } from './qdrant.js'

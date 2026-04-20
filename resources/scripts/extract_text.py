@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/ken/chunk-norris/.venv/bin/python
 """
 Chunk Norris - Document text extraction script
 Supports: PDF (pymupdf), EPUB (ebooklib), DOCX (python-docx), ODT (odfpy)
@@ -9,24 +9,19 @@ import json
 import argparse
 import os
 
-def install_dep(pkg):
-    import subprocess
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg, '-q'],
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+import fitz
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup
+from docx import Document
+from odf.opendocument import load
+from odf.text import P
+from odf import teletype
 
 
 def extract_pdf(path: str) -> dict:
-    try:
-        import fitz
-    except ImportError:
-        install_dep('pymupdf')
-        import fitz
-
     doc = fitz.open(path)
-    pages_text = []
-    for page in doc:
-        pages_text.append(page.get_text())
-
+    pages_text = [page.get_text() for page in doc]
     metadata = doc.metadata or {}
     return {
         'text': '\n\n'.join(pages_text),
@@ -39,17 +34,6 @@ def extract_pdf(path: str) -> dict:
 
 
 def extract_epub(path: str) -> dict:
-    try:
-        import ebooklib
-        from ebooklib import epub
-        from bs4 import BeautifulSoup
-    except ImportError:
-        install_dep('ebooklib')
-        install_dep('beautifulsoup4')
-        import ebooklib
-        from ebooklib import epub
-        from bs4 import BeautifulSoup
-
     book = epub.read_epub(path)
     chapters = []
 
@@ -74,16 +58,8 @@ def extract_epub(path: str) -> dict:
 
 
 def extract_docx(path: str) -> dict:
-    try:
-        from docx import Document
-    except ImportError:
-        install_dep('python-docx')
-        from docx import Document
-
     doc = Document(path)
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-
-    # Get core properties
     props = doc.core_properties
     return {
         'text': '\n\n'.join(paragraphs),
@@ -95,23 +71,12 @@ def extract_docx(path: str) -> dict:
 
 
 def extract_odt(path: str) -> dict:
-    try:
-        from odf.opendocument import load
-        from odf.text import P
-        from odf import teletype
-    except ImportError:
-        install_dep('odfpy')
-        from odf.opendocument import load
-        from odf.text import P
-        from odf import teletype
-
     doc = load(path)
     paragraphs = []
     for p in doc.body.getElementsByType(P):
         text = teletype.extractText(p).strip()
         if text:
             paragraphs.append(text)
-
     return {
         'text': '\n\n'.join(paragraphs),
         'metadata': {}

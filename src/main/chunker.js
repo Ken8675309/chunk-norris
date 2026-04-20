@@ -1,3 +1,5 @@
+const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
+
 export function semanticChunk(text, chunkSize = 500, overlap = 80) {
   const sentences = splitIntoSentences(text)
   const chunks = []

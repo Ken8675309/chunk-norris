@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
 Chunk Norris - First-run Python dependency installer
-Run this once to install all required Python packages.
+Installs all required packages into the project venv.
 """
 
 import subprocess
 import sys
+import os
+
+VENV_PYTHON = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    '.venv', 'bin', 'python'
+)
 
 PACKAGES = [
     'faster-whisper',
@@ -18,15 +24,20 @@ PACKAGES = [
 ]
 
 def main():
+    if os.path.exists(VENV_PYTHON):
+        python = VENV_PYTHON
+    else:
+        python = sys.executable
+
     print("CHUNK NORRIS :: Installing Python dependencies...")
-    print(f"Using Python: {sys.executable}")
+    print(f"Using Python: {python}")
     print()
 
     for pkg in PACKAGES:
         print(f"  Installing {pkg}...", end='', flush=True)
         try:
             result = subprocess.run(
-                [sys.executable, '-m', 'pip', 'install', pkg, '-q'],
+                [python, '-m', 'pip', 'install', pkg, '-q'],
                 capture_output=True, text=True
             )
             if result.returncode == 0:
