@@ -1,5 +1,7 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain, dialog, shell } from 'electron'
 import { extname } from 'path'
+import { homedir } from 'os'
+import { statSync } from 'fs'
 
 const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 import { getSettings, setSetting, addJob, listJobs, cancelJob, retryJob, clearDoneJobs,
@@ -10,7 +12,20 @@ import { ingestFile } from './ingestor.js'
 
 let processingQueue = false
 
+export function startQueueIfIdle() {
+  if (!processingQueue) processQueue()
+}
+
 export function registerIpcHandlers() {
+  // Poll every 30s — catches jobs that were queued while processor was busy
+  setInterval(() => {
+    console.log('[queue] poller tick - checking for queued jobs...')
+    const jobs = listJobs()
+    if (jobs.some(j => j.status === 'queued') && !processingQueue) {
+      console.log('[queue] poller found queued jobs, starting processor')
+      processQueue()
+    }
+  }, 30000)
   // ---- SETTINGS ----
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:set', (_, key, value) => {
@@ -57,6 +72,10 @@ export function registerIpcHandlers() {
 
   // ---- QUEUE ----
   ipcMain.handle('queue:list', () => listJobs())
+  ipcMain.handle('queue:start', () => {
+    console.log('[queue] manual start triggered')
+    if (!processingQueue) processQueue()
+  })
   ipcMain.handle('queue:cancel', (_, id) => {
     const pid = cancelJob(id)
     if (pid) {
@@ -105,6 +124,23 @@ export function registerIpcHandlers() {
       return { models: (data.models || []).map(m => m.name) }
     } catch {
       return { models: [] }
+    }
+  })
+
+  // ---- TRANSCRIPTS ----
+  ipcMain.handle('transcripts:open-folder', () => {
+    const s = getSettings()
+    const dir = s.transcripts_path.replace(/^~/, homedir())
+    return shell.openPath(dir)
+  })
+  ipcMain.handle('transcripts:open-file', (_, filePath) => shell.openPath(filePath))
+  ipcMain.handle('transcripts:file-info', (_, filePath) => {
+    if (!filePath) return null
+    try {
+      const stat = statSync(filePath)
+      return { size: stat.size, exists: true }
+    } catch {
+      return { size: 0, exists: false }
     }
   })
 

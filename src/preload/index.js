@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Queue
   listJobs: () => ipcRenderer.invoke('queue:list'),
+  startQueue: () => ipcRenderer.invoke('queue:start'),
   cancelJob: (id) => ipcRenderer.invoke('queue:cancel', id),
   retryJob: (id) => ipcRenderer.invoke('queue:retry', id),
   resetJob: (id) => ipcRenderer.invoke('queue:reset-job', id),
@@ -25,6 +26,11 @@ contextBridge.exposeInMainWorld('api', {
   // Ollama
   ollamaStatus: () => ipcRenderer.invoke('ollama:status'),
   ollamaModels: () => ipcRenderer.invoke('ollama:models'),
+
+  // Transcripts
+  openTranscriptsFolder: () => ipcRenderer.invoke('transcripts:open-folder'),
+  openTranscript: (filePath) => ipcRenderer.invoke('transcripts:open-file', filePath),
+  transcriptFileInfo: (filePath) => ipcRenderer.invoke('transcripts:file-info', filePath),
 
   // Library
   listDocuments: (page, limit) => ipcRenderer.invoke('library:list', page, limit),

@@ -9,6 +9,10 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar({ activeTab, onTabChange, queueCount, stats }) {
+  const handleOpenTranscripts = async () => {
+    try { await window.api.openTranscriptsFolder() } catch {}
+  }
+
   return (
     <aside className="sidebar">
       <nav className="sidebar-nav">
@@ -25,21 +29,28 @@ export default function Sidebar({ activeTab, onTabChange, queueCount, stats }) {
             )}
           </div>
         ))}
+
+        {/* Transcripts folder shortcut — not a tab, opens file manager */}
+        <div
+          className="sidebar-nav-item"
+          onClick={handleOpenTranscripts}
+          title="Open transcripts folder in file manager"
+        >
+          <span className="sidebar-nav-icon">☰</span>
+          <span>TRANSCRIPTS</span>
+          <span style={{ marginLeft: 'auto', fontSize: '9px', color: 'var(--cn-dim)', opacity: 0.6 }}>↗</span>
+        </div>
       </nav>
 
       <div className="sidebar-stats">
         <div className="sidebar-stats-title">SYSTEM STATS</div>
         <div className="sidebar-stat-grid">
           <div className="sidebar-stat">
-            <div className="sidebar-stat-num">
-              {formatNumber(stats.vectors)}
-            </div>
+            <div className="sidebar-stat-num">{formatNumber(stats.vectors)}</div>
             <div className="sidebar-stat-label">VECTORS</div>
           </div>
           <div className="sidebar-stat">
-            <div className="sidebar-stat-num">
-              {formatNumber(stats.documents)}
-            </div>
+            <div className="sidebar-stat-num">{formatNumber(stats.documents)}</div>
             <div className="sidebar-stat-label">DOCS</div>
           </div>
         </div>

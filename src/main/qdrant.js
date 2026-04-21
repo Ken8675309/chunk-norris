@@ -98,7 +98,7 @@ export async function getQdrantStats() {
         signal: AbortSignal.timeout(5000)
       })
       const info = await infoRes.json()
-      const count = info.result?.vectors_count || 0
+      const count = info.result?.points_count ?? info.result?.vectors_count ?? 0
       stats.collections.push({ name: col.name, vectors: count })
       stats.totalVectors += count
     }
@@ -113,17 +113,25 @@ export async function upsertVectors(points) {
   const s = getSettings()
   const base = `http://${s.qdrant_host}:${s.qdrant_port}`
 
-  const res = await fetch(`${base}/collections/${s.collection_name}/points`, {
+  await ensureCollection()
+  console.log(`[qdrant] Upserting ${points.length} vectors to collection '${s.collection_name}'`)
+
+  const res = await fetch(`${base}/collections/${s.collection_name}/points?wait=true`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ points }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(60000)
   })
 
   if (!res.ok) {
-    throw new Error(`Qdrant upsert failed: ${res.status} ${await res.text()}`)
+    const body = await res.text()
+    console.error(`[qdrant] Upsert failed: ${res.status} ${body}`)
+    throw new Error(`Qdrant upsert failed: ${res.status} ${body}`)
   }
-  return res.json()
+
+  const data = await res.json()
+  console.log(`[qdrant] Upsert result: ${JSON.stringify(data.result)}`)
+  return data
 }
 
 export async function deleteBySourceFile(sourceFile) {

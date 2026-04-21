@@ -16,6 +16,7 @@ export default function LibraryTab() {
   const [query, setQuery]       = useState('')
   const [searching, setSearching] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [transcriptSizes, setTranscriptSizes] = useState({})
 
   const PAGE_SIZE = 50
 
@@ -24,6 +25,7 @@ export default function LibraryTab() {
       const res = await window.api.listDocuments(page, PAGE_SIZE)
       setDocs(res.documents)
       setTotal(res.total)
+      fetchTranscriptSizes(res.documents)
     } catch (err) {
       console.error(err)
     }
@@ -32,6 +34,21 @@ export default function LibraryTab() {
   useEffect(() => {
     if (!searching) loadDocs()
   }, [loadDocs, searching])
+
+  const fetchTranscriptSizes = async (documents) => {
+    const sizes = {}
+    await Promise.all(
+      documents
+        .filter(d => d.transcript_path)
+        .map(async d => {
+          try {
+            const info = await window.api.transcriptFileInfo(d.transcript_path)
+            sizes[d.id] = info
+          } catch {}
+        })
+    )
+    setTranscriptSizes(prev => ({ ...prev, ...sizes }))
+  }
 
   const handleSearch = async (q) => {
     setQuery(q)
@@ -43,6 +60,7 @@ export default function LibraryTab() {
     try {
       const res = await window.api.searchDocuments(q)
       setDocs(res)
+      fetchTranscriptSizes(res)
     } catch {}
   }
 
@@ -54,6 +72,10 @@ export default function LibraryTab() {
     } catch (err) {
       console.error(err)
     }
+  }
+
+  const handleViewTranscript = async (transcriptPath) => {
+    try { await window.api.openTranscript(transcriptPath) } catch {}
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -101,62 +123,78 @@ export default function LibraryTab() {
       )}
 
       <div>
-        {docs.map(doc => (
-          <div key={doc.id} className="library-item">
-            <div
-              className="library-item-icon"
-              style={{ color: TYPE_COLORS[doc.file_type] || 'var(--cn-dim)' }}
-            >
-              {TYPE_ICONS[doc.file_type] || '◈'}
-            </div>
-            <div className="library-item-info">
-              <div className="library-item-title cn-truncate" title={doc.source_file}>
-                {doc.title}
-              </div>
-              <div className="library-item-meta">
-                <span className={`cn-badge cn-badge-${doc.file_type === 'audio' ? 'cyan' : doc.file_type === 'video' ? 'purple' : 'amber'}`} style={{ marginRight: '8px' }}>
-                  {doc.file_type?.toUpperCase()}
-                </span>
-                {doc.format && <span style={{ marginRight: '8px' }}>{doc.format.toUpperCase()}</span>}
-                <span>{formatDate(doc.date_indexed)}</span>
-              </div>
-            </div>
-            <div className="library-item-chunks">
-              <div style={{ fontSize: '16px', textShadow: 'var(--cn-glow-green)' }}>
-                {doc.chunks}
-              </div>
-              <div style={{ fontSize: '8px', color: 'var(--cn-dim)', letterSpacing: '0.1em' }}>
-                CHUNKS
-              </div>
-            </div>
-            {confirmDelete === doc.source_file ? (
-              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                <button
-                  className="cn-btn cn-btn-red"
-                  style={{ fontSize: '9px', padding: '3px 8px' }}
-                  onClick={() => handleDelete(doc.source_file)}
-                >
-                  CONFIRM
-                </button>
-                <button
-                  className="cn-btn"
-                  style={{ fontSize: '9px', padding: '3px 8px' }}
-                  onClick={() => setConfirmDelete(null)}
-                >
-                  CANCEL
-                </button>
-              </div>
-            ) : (
-              <button
-                className="cn-btn cn-btn-red"
-                style={{ fontSize: '9px', padding: '3px 8px', flexShrink: 0 }}
-                onClick={() => setConfirmDelete(doc.source_file)}
+        {docs.map(doc => {
+          const tInfo = transcriptSizes[doc.id]
+          const hasTranscript = doc.transcript_path && tInfo?.exists
+          return (
+            <div key={doc.id} className="library-item" style={{ flexWrap: 'wrap', gap: '8px' }}>
+              <div
+                className="library-item-icon"
+                style={{ color: TYPE_COLORS[doc.file_type] || 'var(--cn-dim)' }}
               >
-                DELETE
-              </button>
-            )}
-          </div>
-        ))}
+                {TYPE_ICONS[doc.file_type] || '◈'}
+              </div>
+              <div className="library-item-info" style={{ flex: 1, minWidth: 0 }}>
+                <div className="library-item-title cn-truncate" title={doc.source_file}>
+                  {doc.title}
+                </div>
+                <div className="library-item-meta">
+                  <span className={`cn-badge cn-badge-${doc.file_type === 'audio' ? 'cyan' : doc.file_type === 'video' ? 'purple' : 'amber'}`} style={{ marginRight: '8px' }}>
+                    {doc.file_type?.toUpperCase()}
+                  </span>
+                  {doc.format && <span style={{ marginRight: '8px' }}>{doc.format.toUpperCase()}</span>}
+                  <span>{formatDate(doc.date_indexed)}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '10px', color: 'var(--cn-dim)', letterSpacing: '0.08em' }}>
+                  <span><span style={{ color: 'var(--cn-green)' }}>{doc.chunks}</span> CHUNKS</span>
+                  {doc.word_count > 0 && (
+                    <span><span style={{ color: 'var(--cn-green)' }}>{formatNumber(doc.word_count)}</span> WORDS</span>
+                  )}
+                  {hasTranscript && tInfo.size > 0 && (
+                    <span><span style={{ color: 'var(--cn-dim)' }}>{formatBytes(tInfo.size)}</span> TRANSCRIPT</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                {hasTranscript && (
+                  <button
+                    className="cn-btn"
+                    style={{ fontSize: '9px', padding: '3px 8px' }}
+                    onClick={() => handleViewTranscript(doc.transcript_path)}
+                  >
+                    TRANSCRIPT ↗
+                  </button>
+                )}
+                {confirmDelete === doc.source_file ? (
+                  <>
+                    <button
+                      className="cn-btn cn-btn-red"
+                      style={{ fontSize: '9px', padding: '3px 8px' }}
+                      onClick={() => handleDelete(doc.source_file)}
+                    >
+                      CONFIRM
+                    </button>
+                    <button
+                      className="cn-btn"
+                      style={{ fontSize: '9px', padding: '3px 8px' }}
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      CANCEL
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="cn-btn cn-btn-red"
+                    style={{ fontSize: '9px', padding: '3px 8px' }}
+                    onClick={() => setConfirmDelete(doc.source_file)}
+                  >
+                    DELETE
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {!searching && totalPages > 1 && (
@@ -190,4 +228,16 @@ function formatDate(iso) {
     const d = new Date(iso)
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   } catch { return iso }
+}
+
+function formatNumber(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+  return String(n)
+}
+
+function formatBytes(b) {
+  if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB'
+  if (b >= 1024) return (b / 1024).toFixed(1) + ' KB'
+  return b + ' B'
 }

@@ -13,6 +13,9 @@ export default function IngestTab() {
   const [chunkSize, setChunkSize] = useState(500)
   const [chunkOverlap, setChunkOverlap] = useState(80)
   const [keyframeInterval, setKeyframeInterval] = useState(45)
+  const [transcriptsPath, setTranscriptsPath] = useState('')
+  const [saveTimestamped, setSaveTimestamped] = useState(true)
+  const [saveClean, setSaveClean] = useState(true)
   const [status, setStatus] = useState(null)
   const dropRef = useRef(null)
 
@@ -23,6 +26,9 @@ export default function IngestTab() {
       setChunkSize(s.chunk_size || 500)
       setChunkOverlap(s.chunk_overlap || 80)
       setKeyframeInterval(s.keyframe_interval || 45)
+      setTranscriptsPath(s.transcripts_path || '')
+      setSaveTimestamped(s.save_timestamped_transcript !== false)
+      setSaveClean(s.save_clean_transcript !== false)
     })
   }, [])
 
@@ -66,6 +72,16 @@ export default function IngestTab() {
       window.api.setSetting('visual_analysis_default', visualAnalysis)
     ])
     setStatus('SETTINGS SAVED')
+    setTimeout(() => setStatus(null), 2000)
+  }
+
+  const saveTranscriptSettings = async () => {
+    await Promise.all([
+      window.api.setSetting('transcripts_path', transcriptsPath),
+      window.api.setSetting('save_timestamped_transcript', saveTimestamped),
+      window.api.setSetting('save_clean_transcript', saveClean)
+    ])
+    setStatus('TRANSCRIPT SETTINGS SAVED')
     setTimeout(() => setStatus(null), 2000)
   }
 
@@ -170,6 +186,54 @@ export default function IngestTab() {
         <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
           <button className="cn-btn" onClick={saveChunkSettings}>
             SAVE DEFAULTS
+          </button>
+        </div>
+      </div>
+
+      {/* Transcript Settings */}
+      <div className="cn-panel" style={{ padding: '14px' }}>
+        <div className="config-section-title">TRANSCRIPT SETTINGS</div>
+
+        <div className="option-field" style={{ marginBottom: '12px' }}>
+          <label className="cn-label">TRANSCRIPTS FOLDER PATH</label>
+          <input
+            type="text"
+            className="cn-input"
+            value={transcriptsPath}
+            onChange={e => setTranscriptsPath(e.target.value)}
+            placeholder="~/chunk-norris/transcripts"
+          />
+        </div>
+
+        <div className="toggle-row">
+          <div>
+            <div className="toggle-row-label">SAVE TIMESTAMPED VERSION</div>
+            <div className="toggle-row-desc">Save [HH:MM:SS] formatted transcript (audio/video only)</div>
+          </div>
+          <input
+            type="checkbox"
+            className="cn-toggle"
+            checked={saveTimestamped}
+            onChange={e => setSaveTimestamped(e.target.checked)}
+          />
+        </div>
+
+        <div className="toggle-row">
+          <div>
+            <div className="toggle-row-label">SAVE CLEAN VERSION</div>
+            <div className="toggle-row-desc">Save readable paragraph-formatted transcript</div>
+          </div>
+          <input
+            type="checkbox"
+            className="cn-toggle"
+            checked={saveClean}
+            onChange={e => setSaveClean(e.target.checked)}
+          />
+        </div>
+
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="cn-btn" onClick={saveTranscriptSettings}>
+            SAVE TRANSCRIPT SETTINGS
           </button>
         </div>
       </div>

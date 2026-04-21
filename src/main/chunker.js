@@ -1,6 +1,20 @@
 const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 
-export function semanticChunk(text, chunkSize = 500, overlap = 80) {
+const MAX_WORDS_BEFORE_SPLIT = 350
+
+// Split a single oversized chunk into pieces of at most MAX_WORDS_BEFORE_SPLIT words,
+// breaking only at whitespace boundaries.
+function hardSplit(chunk) {
+  const words = chunk.split(/\s+/).filter(Boolean)
+  if (words.length <= MAX_WORDS_BEFORE_SPLIT) return [chunk]
+  const pieces = []
+  for (let i = 0; i < words.length; i += MAX_WORDS_BEFORE_SPLIT) {
+    pieces.push(words.slice(i, i + MAX_WORDS_BEFORE_SPLIT).join(' '))
+  }
+  return pieces
+}
+
+export function semanticChunk(text, chunkSize = 350, overlap = 80) {
   const sentences = splitIntoSentences(text)
   const chunks = []
   let currentWords = []
@@ -70,11 +84,19 @@ export async function embedText(text, model, ollamaHost, ollamaPort) {
 }
 
 export async function embedChunks(chunks, model, ollamaHost, ollamaPort, onProgress) {
+  const safe = chunks.flatMap(hardSplit)
+  console.log(`[chunker] Embedding ${safe.length} chunks (model: ${model}, host: ${ollamaHost}:${ollamaPort})`)
   const results = []
-  for (let i = 0; i < chunks.length; i++) {
-    const embedding = await embedText(chunks[i], model, ollamaHost, ollamaPort)
-    results.push({ text: chunks[i], embedding })
-    if (onProgress) onProgress(Math.round(((i + 1) / chunks.length) * 100))
+  for (let i = 0; i < safe.length; i++) {
+    try {
+      const embedding = await embedText(safe[i], model, ollamaHost, ollamaPort)
+      results.push({ text: safe[i], embedding })
+    } catch (err) {
+      console.error(`[chunker] Embed failed on chunk ${i}/${safe.length}: ${err.message}`)
+      throw err
+    }
+    if (onProgress) onProgress(Math.round(((i + 1) / safe.length) * 100))
   }
+  console.log(`[chunker] Embedded ${results.length}/${safe.length} chunks successfully`)
   return results
 }

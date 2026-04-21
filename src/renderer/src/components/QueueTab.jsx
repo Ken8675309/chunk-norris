@@ -14,11 +14,12 @@ const TYPE_ICONS = {
   pdf: '⬛', epub: '◈', docx: '☰', odt: '☰', txt: '☰', md: '☰'
 }
 
-const STUCK_THRESHOLD_MS = 5 * 60 * 1000
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000
 
 function isStuck(job) {
   if (job.status !== 'processing') return false
-  return Date.now() - new Date(job.date_added).getTime() > STUCK_THRESHOLD_MS
+  const ref = job.date_started || job.date_added
+  return Date.now() - new Date(ref).getTime() > STUCK_THRESHOLD_MS
 }
 
 export default function QueueTab() {
@@ -34,12 +35,13 @@ export default function QueueTab() {
     return () => clearInterval(t)
   }, [])
 
-  const handleCancel     = async (id) => { await window.api.cancelJob(id) }
-  const handleRetry      = async (id) => { await window.api.retryJob(id) }
-  const handleReset      = async (id) => { await window.api.resetJob(id) }
-  const handleDelete     = async (id) => { await window.api.deleteJob(id) }
-  const handleClearDone  = async ()   => { await window.api.clearDoneJobs(); load() }
-  const handleClearErrors = async ()  => { await window.api.clearErrors(); load() }
+  const handleCancel      = async (id) => { await window.api.cancelJob(id) }
+  const handleRetry       = async (id) => { await window.api.retryJob(id) }
+  const handleReset       = async (id) => { await window.api.resetJob(id) }
+  const handleDelete      = async (id) => { await window.api.deleteJob(id) }
+  const handleClearDone   = async ()   => { await window.api.clearDoneJobs(); load() }
+  const handleClearErrors = async ()   => { await window.api.clearErrors(); load() }
+  const handleStartQueue  = async ()   => { await window.api.startQueue() }
 
   const active   = jobs.filter(j => j.status === 'processing')
   const queued   = jobs.filter(j => j.status === 'queued')
@@ -48,7 +50,8 @@ export default function QueueTab() {
   const canceled = jobs.filter(j => j.status === 'canceled')
 
   const callbacks = { onCancel: handleCancel, onRetry: handleRetry,
-                      onReset: handleReset, onDelete: handleDelete }
+                      onReset: handleReset, onDelete: handleDelete,
+                      onProcessNow: handleStartQueue }
 
   return (
     <div className="tab-container">
@@ -73,6 +76,15 @@ export default function QueueTab() {
               <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: 'var(--cn-dim)' }}>{s.label}</div>
             </div>
           ))}
+          {queued.length > 0 && active.length === 0 && (
+            <button
+              className="cn-btn"
+              style={{ fontSize: '10px', padding: '4px 14px', borderColor: 'var(--cn-green)', color: 'var(--cn-green)', textShadow: 'var(--cn-glow-green)' }}
+              onClick={handleStartQueue}
+            >
+              ▶ START QUEUE
+            </button>
+          )}
           {(errored.length > 0 || canceled.length > 0) && (
             <button
               className="cn-btn cn-btn-red"
@@ -142,7 +154,7 @@ function Section({ label, children }) {
   )
 }
 
-function JobItem({ job, onCancel, onRetry, onReset, onDelete }) {
+function JobItem({ job, onCancel, onRetry, onReset, onDelete, onProcessNow }) {
   const stuck    = isStuck(job)
   const cfg      = stuck ? { badge: 'cn-badge-amber', label: 'STUCK' }
                          : (STATUS_CONFIG[job.status] || STATUS_CONFIG.queued)
@@ -172,8 +184,15 @@ function JobItem({ job, onCancel, onRetry, onReset, onDelete }) {
         {stuck && (
           <Btn variant="amber" onClick={() => onReset(job.id)}>RESET</Btn>
         )}
-        {/* QUEUED or active-not-stuck → Cancel */}
-        {(isQueued || (isActive && !stuck)) && (
+        {/* QUEUED → Process Now + Cancel */}
+        {isQueued && (
+          <>
+            <Btn variant="green" onClick={onProcessNow}>PROCESS NOW</Btn>
+            <Btn variant="red" onClick={() => onCancel(job.id)}>CANCEL</Btn>
+          </>
+        )}
+        {/* Active-not-stuck → Cancel */}
+        {isActive && !stuck && (
           <Btn variant="red" onClick={() => onCancel(job.id)}>CANCEL</Btn>
         )}
         {/* ERROR → Retry */}
@@ -219,6 +238,7 @@ function JobItem({ job, onCancel, onRetry, onReset, onDelete }) {
 
 function Btn({ variant, onClick, children }) {
   const styles = {
+    green: { borderColor: 'var(--cn-green)', color: 'var(--cn-green)', textShadow: 'var(--cn-glow-green)' },
     amber: { borderColor: 'var(--cn-amber)', color: 'var(--cn-amber)' },
     red:   { borderColor: 'var(--cn-red)',   color: 'var(--cn-red)' },
     muted: { borderColor: 'var(--cn-border)', color: 'var(--cn-dim)' },

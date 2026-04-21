@@ -46,10 +46,14 @@ export function updateJobProgress(id, progress, statusMsg = '') {
 
 export function updateJobStatus(id, status, errorMsg = '') {
   const db = getDb()
-  db.prepare('UPDATE jobs SET status = ?, error_msg = ? WHERE id = ?').run(status, errorMsg, id)
+  if (status === 'processing') {
+    db.prepare(`UPDATE jobs SET status = ?, error_msg = ?, date_started = datetime('now') WHERE id = ?`).run(status, errorMsg, id)
+  } else {
+    db.prepare('UPDATE jobs SET status = ?, error_msg = ? WHERE id = ?').run(status, errorMsg, id)
+  }
 }
 
-export function completeJob(id, chunksCreated) {
+export function completeJob(id, chunksCreated, transcriptPath = null, wordCount = 0) {
   const db = getDb()
   db.prepare(`
     UPDATE jobs SET status = 'done', progress = 100, chunks_created = ?, date_completed = datetime('now')
@@ -59,14 +63,16 @@ export function completeJob(id, chunksCreated) {
   const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(id)
   if (job) {
     db.prepare(`
-      INSERT OR REPLACE INTO documents (title, source_file, file_type, format, chunks)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO documents (title, source_file, file_type, format, chunks, transcript_path, word_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       job.file_name.replace(/\.[^.]+$/, ''),
       job.file_path,
       job.file_type,
       job.file_type,
-      chunksCreated
+      chunksCreated,
+      transcriptPath,
+      wordCount
     )
   }
 }

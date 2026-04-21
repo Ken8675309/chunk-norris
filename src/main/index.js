@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase } from '../db/schema.js'
 import { resetStuckJobs } from '../db/queries.js'
-import { registerIpcHandlers } from './ipc.js'
+import { registerIpcHandlers, startQueueIfIdle } from './ipc.js'
 import { checkQdrant } from './qdrant.js'
 
 let mainWindow
@@ -54,6 +54,8 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
   createWindow()
   checkQdrant()
+  // Kick off any jobs that were queued before the app restarted
+  setTimeout(() => startQueueIfIdle(), 2000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

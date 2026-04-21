@@ -37,13 +37,15 @@ export function initDatabase() {
     );
 
     CREATE TABLE IF NOT EXISTS documents (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      title       TEXT NOT NULL,
-      source_file TEXT NOT NULL UNIQUE,
-      file_type   TEXT NOT NULL,
-      format      TEXT,
-      chunks      INTEGER DEFAULT 0,
-      date_indexed TEXT NOT NULL DEFAULT (datetime('now'))
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      title           TEXT NOT NULL,
+      source_file     TEXT NOT NULL UNIQUE,
+      file_type       TEXT NOT NULL,
+      format          TEXT,
+      chunks          INTEGER DEFAULT 0,
+      transcript_path TEXT,
+      word_count      INTEGER DEFAULT 0,
+      date_indexed    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -54,6 +56,9 @@ export function initDatabase() {
 
   // Migrations — safe to re-run (errors ignored)
   try { db.exec(`ALTER TABLE jobs ADD COLUMN pid INTEGER DEFAULT NULL`) } catch {}
+  try { db.exec(`ALTER TABLE jobs ADD COLUMN date_started TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE documents ADD COLUMN transcript_path TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE documents ADD COLUMN word_count INTEGER DEFAULT 0`) } catch {}
 
   // Seed defaults
   const defaults = {
@@ -69,6 +74,8 @@ export function initDatabase() {
     collection_name: 'knowledge_base',
     transcripts_path: join(homedir(), 'chunk-norris', 'transcripts'),
     keep_transcripts: 'true',
+    save_timestamped_transcript: 'true',
+    save_clean_transcript: 'true',
     delete_source_after_index: 'false',
     ollama_host: 'localhost',
     ollama_port: '11434'
