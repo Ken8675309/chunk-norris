@@ -87,8 +87,13 @@ export function registerIpcHandlers() {
     processQueue()
   })
   ipcMain.handle('queue:reset-job', (_, id) => {
-    resetJob(id)
-    processQueue()
+    const pid = resetJob(id)
+    if (pid) {
+      console.log(`[queue] reset-job: killing pid ${pid}`)
+      try { process.kill(pid, 'SIGTERM') } catch {}
+    }
+    // Give the killed process a moment to exit, then re-check the queue
+    setTimeout(() => { if (!processingQueue) processQueue() }, 1500)
   })
   ipcMain.handle('queue:delete-job', (_, id) => deleteJob(id))
   ipcMain.handle('queue:clear-errors', () => clearErroredJobs())

@@ -158,12 +158,14 @@ async function ingestAudio(jobId, filePath, fileName, ext, settings) {
     cleanPath = cachedCleanPath
     wordCount = transcriptText.split(/\s+/).filter(Boolean).length
   } else {
+    const checkpointDir = join(transcriptsRoot(settings), 'audio')
     updateJobProgress(jobId, 5, 'Transcribing audio...')
     const result = await transcribeAudio(
       filePath,
       settings.whisper_model,
       (pct) => updateJobProgress(jobId, 5 + Math.floor(pct * 0.5), 'Transcribing...'),
-      (pid) => setJobPid(jobId, pid)
+      (pid) => setJobPid(jobId, pid),
+      checkpointDir
     )
     transcriptText = result.text || ''
 

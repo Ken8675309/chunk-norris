@@ -24,6 +24,7 @@ function isStuck(job) {
 
 export default function QueueTab() {
   const [jobs, setJobs] = useState([])
+  const [starting, setStarting] = useState(false)
 
   const load = async () => {
     try { setJobs(await window.api.listJobs()) } catch {}
@@ -41,7 +42,11 @@ export default function QueueTab() {
   const handleDelete      = async (id) => { await window.api.deleteJob(id) }
   const handleClearDone   = async ()   => { await window.api.clearDoneJobs(); load() }
   const handleClearErrors = async ()   => { await window.api.clearErrors(); load() }
-  const handleStartQueue  = async ()   => { await window.api.startQueue() }
+  const handleStartQueue  = async ()   => {
+    setStarting(true)
+    await window.api.startQueue()
+    setTimeout(() => setStarting(false), 3000)
+  }
 
   const active   = jobs.filter(j => j.status === 'processing')
   const queued   = jobs.filter(j => j.status === 'queued')
@@ -51,7 +56,7 @@ export default function QueueTab() {
 
   const callbacks = { onCancel: handleCancel, onRetry: handleRetry,
                       onReset: handleReset, onDelete: handleDelete,
-                      onProcessNow: handleStartQueue }
+                      onProcessNow: handleStartQueue, starting }
 
   return (
     <div className="tab-container">
@@ -79,10 +84,11 @@ export default function QueueTab() {
           {queued.length > 0 && active.length === 0 && (
             <button
               className="cn-btn"
-              style={{ fontSize: '10px', padding: '4px 14px', borderColor: 'var(--cn-green)', color: 'var(--cn-green)', textShadow: 'var(--cn-glow-green)' }}
+              style={{ fontSize: '10px', padding: '4px 14px', borderColor: 'var(--cn-green)', color: starting ? 'var(--cn-dim)' : 'var(--cn-green)', textShadow: starting ? 'none' : 'var(--cn-glow-green)' }}
               onClick={handleStartQueue}
+              disabled={starting}
             >
-              ▶ START QUEUE
+              {starting ? '◌ STARTING...' : '▶ START QUEUE'}
             </button>
           )}
           {(errored.length > 0 || canceled.length > 0) && (
@@ -154,7 +160,7 @@ function Section({ label, children }) {
   )
 }
 
-function JobItem({ job, onCancel, onRetry, onReset, onDelete, onProcessNow }) {
+function JobItem({ job, onCancel, onRetry, onReset, onDelete, onProcessNow, starting }) {
   const stuck    = isStuck(job)
   const cfg      = stuck ? { badge: 'cn-badge-amber', label: 'STUCK' }
                          : (STATUS_CONFIG[job.status] || STATUS_CONFIG.queued)
@@ -187,7 +193,9 @@ function JobItem({ job, onCancel, onRetry, onReset, onDelete, onProcessNow }) {
         {/* QUEUED → Process Now + Cancel */}
         {isQueued && (
           <>
-            <Btn variant="green" onClick={onProcessNow}>PROCESS NOW</Btn>
+            <Btn variant={starting ? 'muted' : 'green'} onClick={onProcessNow} disabled={starting}>
+              {starting ? 'STARTING...' : 'PROCESS NOW'}
+            </Btn>
             <Btn variant="red" onClick={() => onCancel(job.id)}>CANCEL</Btn>
           </>
         )}
@@ -236,7 +244,7 @@ function JobItem({ job, onCancel, onRetry, onReset, onDelete, onProcessNow }) {
   )
 }
 
-function Btn({ variant, onClick, children }) {
+function Btn({ variant, onClick, children, disabled = false }) {
   const styles = {
     green: { borderColor: 'var(--cn-green)', color: 'var(--cn-green)', textShadow: 'var(--cn-glow-green)' },
     amber: { borderColor: 'var(--cn-amber)', color: 'var(--cn-amber)' },
@@ -246,8 +254,9 @@ function Btn({ variant, onClick, children }) {
   return (
     <button
       className="cn-btn"
-      style={{ fontSize: '9px', padding: '2px 8px', ...styles[variant] }}
+      style={{ fontSize: '9px', padding: '2px 8px', opacity: disabled ? 0.5 : 1, ...(styles[variant] || {}) }}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>

@@ -126,10 +126,12 @@ export function resetStuckJobs() {
 
 export function resetJob(id) {
   const db = getDb()
+  const job = db.prepare(`SELECT pid FROM jobs WHERE id = ? AND status = 'processing'`).get(id)
   db.prepare(`
-    UPDATE jobs SET status = 'queued', progress = 0, error_msg = '', status_msg = ''
+    UPDATE jobs SET status = 'queued', progress = 0, error_msg = '', status_msg = '', pid = NULL
     WHERE id = ? AND status = 'processing'
   `).run(id)
+  return job?.pid ?? null
 }
 
 // ---- DOCUMENTS ----

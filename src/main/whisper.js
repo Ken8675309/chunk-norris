@@ -15,48 +15,85 @@ function getScriptsDir() {
   return join(process.resourcesPath, 'scripts')
 }
 
-export function transcribeAudio(audioPath, model = 'large-v3', onProgress, onPid) {
+const PROGRESS_WATCHDOG_MS = 5 * 60 * 1000  // 5 min no output → kill
+
+export function transcribeAudio(audioPath, model = 'large-v3', onProgress, onPid, checkpointDir = null) {
   return new Promise((resolve, reject) => {
     const scriptPath = join(getScriptsDir(), 'transcribe.py')
-    const py = spawn(PYTHON, [scriptPath, audioPath, '--model', model], { env: spawnEnv })
+    const args = [scriptPath, audioPath, '--model', model]
+    if (checkpointDir) args.push('--checkpoint-dir', checkpointDir)
+
+    const py = spawn(PYTHON, args, { env: spawnEnv })
     if (onPid) onPid(py.pid)
 
     let stdout = ''
     let stderr = ''
+    let settled = false
+
+    const settle = (fn) => {
+      if (settled) return
+      settled = true
+      clearTimeout(watchdogTimer)
+      fn()
+    }
+
+    // Watchdog: if no PROGRESS line arrives for 5 minutes, kill subprocess.
+    // The checkpoint file will be intact so retry resumes from last save.
+    let watchdogTimer = setTimeout(() => {
+      console.error('[whisper] No progress for 5 minutes — killing stuck subprocess')
+      try { py.kill('SIGTERM') } catch {}
+      settle(() => reject(new Error(
+        'Whisper stuck: no progress for 5 minutes. Checkpoint preserved — retry will resume from last save point.'
+      )))
+    }, PROGRESS_WATCHDOG_MS)
+
+    const resetWatchdog = () => {
+      clearTimeout(watchdogTimer)
+      watchdogTimer = setTimeout(() => {
+        console.error('[whisper] No progress for 5 minutes — killing stuck subprocess')
+        try { py.kill('SIGTERM') } catch {}
+        settle(() => reject(new Error(
+          'Whisper stuck: no progress for 5 minutes. Checkpoint preserved — retry will resume from last save point.'
+        )))
+      }, PROGRESS_WATCHDOG_MS)
+    }
 
     py.stdout.on('data', (data) => {
       const text = data.toString()
       stdout += text
       const lines = text.split('\n').filter(Boolean)
       for (const line of lines) {
-        if (line.startsWith('PROGRESS:') && onProgress) {
-          const pct = parseFloat(line.replace('PROGRESS:', '').trim())
-          if (!isNaN(pct)) onProgress(pct)
+        if (line.startsWith('PROGRESS:')) {
+          resetWatchdog()
+          if (onProgress) {
+            const pct = parseFloat(line.replace('PROGRESS:', '').trim())
+            if (!isNaN(pct)) onProgress(pct)
+          }
         }
       }
     })
 
-    py.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
+    py.stderr.on('data', (data) => { stderr += data.toString() })
 
     py.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Whisper exited ${code}: ${stderr.slice(-500)}`))
-        return
-      }
-
-      try {
-        const jsonStart = stdout.indexOf('{')
-        const result = JSON.parse(stdout.slice(jsonStart))
-        resolve(result)
-      } catch (err) {
-        reject(new Error(`Failed to parse Whisper output: ${err.message}\n${stdout.slice(-300)}`))
-      }
+      settle(() => {
+        if (code !== 0 && code !== null) {
+          reject(new Error(`Whisper exited ${code}: ${stderr.slice(-500)}`))
+          return
+        }
+        if (code === null) return  // killed by watchdog, already rejected
+        try {
+          const jsonStart = stdout.indexOf('{')
+          const result = JSON.parse(stdout.slice(jsonStart))
+          resolve(result)
+        } catch (err) {
+          reject(new Error(`Failed to parse Whisper output: ${err.message}\n${stdout.slice(-300)}`))
+        }
+      })
     })
 
     py.on('error', (err) => {
-      reject(new Error(`Failed to spawn Python (${PYTHON}): ${err.message}`))
+      settle(() => reject(new Error(`Failed to spawn Python (${PYTHON}): ${err.message}`)))
     })
   })
 }
