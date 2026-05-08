@@ -120,6 +120,7 @@ function saveTranscripts(baseName, ext, settings, {
 export async function ingestFile(job, settings) {
   const { id, file_path, file_name } = job
   const ext = extname(file_name).slice(1).toLowerCase()
+  console.log(`[ingestor] start job #${id} (${file_name}) ext=.${ext}`)
 
   try {
     updateJobStatus(id, 'processing')
@@ -136,6 +137,7 @@ export async function ingestFile(job, settings) {
     }
 
     completeJob(id, result.chunksCreated, result.transcriptPath, result.wordCount)
+    console.log(`[ingestor] completed job #${id} chunks=${result.chunksCreated}`)
   } catch (err) {
     console.error(`[ingestor] Error processing ${file_name}:`, err)
     updateJobStatus(id, 'error', err.message)

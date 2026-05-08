@@ -118,10 +118,19 @@ export function clearDoneJobs() {
 
 export function resetStuckJobs() {
   const db = getDb()
-  db.prepare(`
-    UPDATE jobs SET status = 'queued', progress = 0, status_msg = ''
+  // Kill any orphaned child PIDs recorded from a previous run before we reset state
+  const stuck = db.prepare(`SELECT id, pid FROM jobs WHERE status = 'processing'`).all()
+  for (const { pid } of stuck) {
+    if (pid) {
+      try { process.kill(pid, 'SIGTERM') } catch {}
+    }
+  }
+  const res = db.prepare(`
+    UPDATE jobs SET status = 'queued', progress = 0, status_msg = '', pid = NULL
     WHERE status = 'processing'
   `).run()
+  if (res.changes > 0) console.log(`[queue] resetStuckJobs: requeued ${res.changes} orphaned job(s)`)
+  return res.changes
 }
 
 export function resetJob(id) {
