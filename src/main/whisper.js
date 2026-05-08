@@ -6,8 +6,6 @@ const PYTHON = '/home/ken/chunk-norris/.venv/bin/python'
 
 const spawnEnv = {
   ...process.env,
-  CUDA_VISIBLE_DEVICES: '',
-  HIP_VISIBLE_DEVICES: '',
 }
 
 function getScriptsDir() {
