@@ -48,7 +48,7 @@ async function startQdrantDocker() {
     const cmd = [
       'docker run -d --name qdrant',
       `-p ${s.qdrant_port}:6333 -p 6334:6334`,
-      `-v "${STORAGE_PATH}:/qdrant/storage"`,
+      `-v "${STORAGE_PATH}:/qdrant/storage:Z"`,
       'qdrant/qdrant'
     ].join(' ')
 
