@@ -61,9 +61,17 @@ python3 resources/scripts/setup_deps.py
 
 ### 4. ffmpeg (for audio/video processing)
 
-**Linux:**
+**Linux (Debian/Ubuntu):**
 ```bash
 sudo apt install ffmpeg
+```
+
+**Linux (Fedora):** ffmpeg is in [RPM Fusion](https://rpmfusion.org/Configuration). The
+Fedora-included `ffmpeg-free` works for most use cases:
+```bash
+sudo dnf install ffmpeg-free
+# or, for the full RPM Fusion build:
+sudo dnf install ffmpeg --allowerasing
 ```
 
 **macOS:**
@@ -72,6 +80,33 @@ brew install ffmpeg
 ```
 
 **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
+
+### 5. (Optional) GPU acceleration for Whisper
+
+`transcribe.py` auto-detects CUDA — if a working GPU stack is present it uses
+`device=cuda` with `float16`, otherwise it falls back to CPU. To enable GPU
+transcription on an NVIDIA card you need cuDNN 9 + cuBLAS 12 visible to the
+venv. The simplest way is to install them as Python wheels:
+
+```bash
+# Inside the project venv (created automatically by setup_deps.py)
+.venv/bin/pip install "nvidia-cudnn-cu12==9.*" nvidia-cublas-cu12
+```
+
+The script preloads these libs at import time, so no `LD_LIBRARY_PATH` setup
+is required. With a 12 GB+ GPU, `large-v3` runs comfortably (~3 GB VRAM,
+~10–20× realtime). On systems without a CUDA-capable GPU this step can be
+skipped — Whisper will run on CPU.
+
+The Diagnostics tab shows a **GPU / VRAM** panel automatically when
+`nvidia-smi` is on PATH (per-device utilization, used/total VRAM, temp).
+
+### 6. (Optional, Linux with SELinux) Container labeling
+
+Qdrant's bind-mounted storage directory needs the `container_file_t` label
+on SELinux-enforcing distros (Fedora, RHEL). The auto-launch in `qdrant.js`
+uses the `:Z` mount flag so Docker relabels on first run — no manual
+`chcon` needed.
 
 ---
 

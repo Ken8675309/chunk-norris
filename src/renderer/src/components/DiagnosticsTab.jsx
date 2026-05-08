@@ -166,6 +166,41 @@ export default function DiagnosticsTab({ services }) {
         </div>
       )}
 
+      {/* GPU Info */}
+      {sysInfo && sysInfo.gpus && sysInfo.gpus.length > 0 && (
+        <div className="cn-panel" style={{ padding: '14px' }}>
+          <div className="config-section-title">GPU / VRAM</div>
+          {sysInfo.gpus.map((g, i) => {
+            const vramPct = g.memTotalMB ? Math.round((g.memUsedMB / g.memTotalMB) * 100) : 0
+            return (
+              <div key={i} style={{ marginBottom: i < sysInfo.gpus.length - 1 ? '16px' : 0 }}>
+                <div className="diag-sysinfo" style={{ marginBottom: '8px' }}>
+                  <SysInfoItem k="DEVICE" v={`${g.vendor} ${g.name}`} />
+                  <SysInfoItem k="GPU UTIL" v={`${g.utilPct}%`} />
+                  <SysInfoItem k="VRAM" v={`${formatBytes(g.memUsedMB * 1024 * 1024)} / ${formatBytes(g.memTotalMB * 1024 * 1024)}`} />
+                  <SysInfoItem k="TEMP" v={`${g.tempC}°C`} />
+                </div>
+                <div className="cn-label">VRAM USAGE</div>
+                <div className="cn-progress-track" style={{ height: '8px' }}>
+                  <div
+                    className="cn-progress-fill"
+                    style={{
+                      width: `${vramPct}%`,
+                      background: vramPct > 90 ? 'var(--cn-red)' : vramPct > 75 ? 'var(--cn-amber)' : undefined
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                  <span style={{ fontSize: '9px', color: 'var(--cn-dim)', letterSpacing: '0.1em' }}>0%</span>
+                  <span style={{ fontSize: '9px', color: 'var(--cn-dim)', letterSpacing: '0.1em' }}>{vramPct}% USED</span>
+                  <span style={{ fontSize: '9px', color: 'var(--cn-dim)', letterSpacing: '0.1em' }}>100%</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Python deps */}
       <div className="cn-panel" style={{ padding: '14px' }}>
         <div className="config-section-title">PYTHON DEPENDENCIES</div>
