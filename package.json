@@ -55,7 +55,7 @@
         "deb"
       ],
       "category": "Utility",
-      "icon": "resources/icon.png"
+      "icon": "build/icon.png"
     },
     "win": {
       "target": "nsis",
