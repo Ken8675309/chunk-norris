@@ -14,6 +14,17 @@ import subprocess
 import tempfile
 import shutil
 
+# Preload pip-installed CUDA libs so ctranslate2 finds cuDNN/cuBLAS
+import glob as _glob
+import ctypes as _ctypes
+_site = os.path.join(sys.prefix, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages')
+for _sub in ('nvidia/cublas/lib', 'nvidia/cudnn/lib'):
+    _dir = os.path.join(_site, _sub)
+    if os.path.isdir(_dir):
+        for _so in sorted(_glob.glob(os.path.join(_dir, '*.so*'))):
+            try: _ctypes.CDLL(_so, mode=_ctypes.RTLD_GLOBAL)
+            except OSError: pass
+
 from faster_whisper import WhisperModel
 
 CHECKPOINT_INTERVAL_SEC = 600   # save checkpoint every 10 min of audio
@@ -109,8 +120,17 @@ def transcribe(audio_path: str, model_size: str = 'large-v3', checkpoint_dir: st
     print(f"[whisper] duration={total_duration:.0f}s model={model_size}", flush=True)
 
     # Load model
-    model = WhisperModel(model_size, device='cpu', compute_type='int8',
-                         cpu_threads=24, num_workers=4)
+    # Try GPU first (CUDA via ctranslate2). Fall back to CPU on any failure
+    # (no NVIDIA driver, no cuDNN, OOM, etc.) so CPU-only systems still work.
+    try:
+        model = WhisperModel(model_size, device='cuda', compute_type='float16',
+                             num_workers=1)
+        print(f"[whisper] using device=cuda compute_type=float16", flush=True)
+    except Exception as e:
+        print(f"[whisper] CUDA unavailable ({e}); falling back to CPU", flush=True)
+        model = WhisperModel(model_size, device='cpu', compute_type='int8',
+                             cpu_threads=os.cpu_count() or 4, num_workers=4)
+        print(f"[whisper] using device=cpu compute_type=int8", flush=True)
 
     # Build work list: (audio_path, chunk_offset, resume_within_chunk)
     work_items = []
